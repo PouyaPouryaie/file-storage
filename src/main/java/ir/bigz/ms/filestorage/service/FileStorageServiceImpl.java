@@ -3,12 +3,14 @@ package ir.bigz.ms.filestorage.service;
 import ir.bigz.ms.filestorage.config.FileStorageProperties;
 import ir.bigz.ms.filestorage.exception.FileStorageException;
 import ir.bigz.ms.filestorage.exception.MyFileNotFoundException;
+import org.apache.commons.io.FileUtils;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.File;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.nio.file.Files;
@@ -52,7 +54,7 @@ public class FileStorageServiceImpl implements FileStorageService {
     @Override
     public Resource loadFileAsResource(String fileName) {
         try {
-            Path filePath = this.fileStorageLocation.resolve(fileName).normalize();
+            Path filePath = getFilePath(fileName);
             Resource resource = new UrlResource(filePath.toUri());
             if(resource.exists()) {
                 return resource;
@@ -62,5 +64,24 @@ public class FileStorageServiceImpl implements FileStorageService {
         } catch (MalformedURLException ex) {
             throw new MyFileNotFoundException("File not found " + fileName, ex);
         }
+    }
+
+    @Override
+    public File downloadFileAsPDF(String fileName) {
+        Path filePath = null;
+        File file = null;
+
+        filePath = getFilePath(fileName);
+        file = new File(String.valueOf(Paths.get(filePath.toUri())));
+
+        if (file.length() > 0 ){
+            return file;
+        }
+
+        throw new MyFileNotFoundException("File not found " + fileName);
+    }
+
+    private Path getFilePath(String fileName){
+        return this.fileStorageLocation.resolve(fileName).normalize();
     }
 }

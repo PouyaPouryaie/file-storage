@@ -4,12 +4,16 @@ import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.File;
+
 @Service
 public interface FileStorageService {
 
     boolean checkFileValid(MultipartFile file);
 
-    public String storeFile(MultipartFile file);
+    String storeFile(MultipartFile file);
 
-    public Resource loadFileAsResource(String fileName);
+    Resource loadFileAsResource(String fileName);
+
+    File downloadFileAsPDF(String fileName);
 }
