@@ -15,5 +15,7 @@ public interface FileStorageService {
 
     Resource loadFileAsResource(String fileName);
 
+    byte[] loadFileAsByte(String category, String fileName);
+
     File downloadFileAsPDF(String fileName);
 }

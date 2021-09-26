@@ -4,6 +4,7 @@ import ir.bigz.ms.filestorage.config.FileStorageProperties;
 import ir.bigz.ms.filestorage.exception.FileStorageException;
 import ir.bigz.ms.filestorage.exception.MyFileNotFoundException;
 import org.apache.commons.io.FileUtils;
+import org.apache.commons.io.IOUtils;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
 import org.springframework.stereotype.Component;
@@ -12,6 +13,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.MalformedURLException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -64,6 +66,19 @@ public class FileStorageServiceImpl implements FileStorageService {
         } catch (MalformedURLException ex) {
             throw new MyFileNotFoundException("File not found " + fileName, ex);
         }
+    }
+
+    @Override
+    public byte[] loadFileAsByte(String category, String fileName){
+        try(InputStream resourceAsStream = getClass().getClassLoader()
+        .getResourceAsStream("file" + File.separator + category + File.separator + fileName + ".png")){
+            if(resourceAsStream.available() > 0){
+                return IOUtils.toByteArray(resourceAsStream);
+            }
+        }catch(IOException ex){
+            throw new MyFileNotFoundException("File not found " + fileName);
+        }
+        return new byte[0];
     }
 
     @Override

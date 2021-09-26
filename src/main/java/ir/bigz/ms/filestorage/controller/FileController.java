@@ -4,6 +4,12 @@ import ir.bigz.ms.filestorage.model.UploadFileResponse;
 import ir.bigz.ms.filestorage.service.FileStorageService;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.FileUtils;
+import org.apache.commons.io.IOUtils;
+import org.apache.tika.Tika;
+import org.apache.tika.config.TikaConfig;
+import org.apache.tika.exception.TikaException;
+import org.apache.tika.io.TikaInputStream;
+import org.apache.tika.metadata.Metadata;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpHeaders;
@@ -20,6 +26,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.Collections;
 import java.util.HashMap;
 
@@ -29,6 +36,7 @@ import java.util.HashMap;
 public class FileController {
 
     private final FileStorageService fileStorageService;
+    private final Tika tika = new Tika();
 
     @Autowired
     public FileController(FileStorageService fileStorageService) {
@@ -58,6 +66,25 @@ public class FileController {
 
         return new UploadFileResponse(fileName, fileDownloadUri,
                 file.getContentType(), file.getSize());
+    }
+
+    @GetMapping("/downladFile/file/{category}/{fileName:.+}")
+    public ResponseEntity<?> downloadFileAsByte(@PathVariable(name = "category") String category, @PathVariable(name = "name") String fileName) {
+        
+        byte[] bytes = fileStorageService.loadFileAsByte(category, fileName);
+        if(bytes.length > 1){
+            try{
+                TikaConfig tc = new TikaConfig();
+                Metadata md = new Metadata();
+                md.set(Metadata.MIME_TYPE_MAGIC, fileName);
+                String mimetype = tc.getDetector().detect(TikaInputStream.get(bytes), md).toString();
+                return ResponseEntity.ok().contentType(MediaType.parseMediaType(mimetype)).body(bytes);
+            }catch(IOException | TikaException ex){
+                return new ResponseEntity<>("not found file", HttpStatus.NOT_FOUND);
+            }
+
+        }
+        return null;
     }
 
     @GetMapping("/downloadFile/{fileName:.+}")
