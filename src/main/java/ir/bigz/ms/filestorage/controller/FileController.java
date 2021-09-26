@@ -11,6 +11,7 @@ import org.apache.tika.exception.TikaException;
 import org.apache.tika.io.TikaInputStream;
 import org.apache.tika.metadata.Metadata;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -83,8 +84,14 @@ public class FileController {
                 return new ResponseEntity<>("not found file", HttpStatus.NOT_FOUND);
             }
 
+        }else{
+            FileSystemResource fileSystemResource = new FileSystemResource("file/images/" + (fileName != null ? fileName : "") + ".png");
+           if (fileSystemResource.exists()) {
+               return new ResponseEntity<>(fileSystemResource, HttpStatus.OK);
+           } else {
+               return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+           }
         }
-        return null;
     }
 
     @GetMapping("/downloadFile/{fileName:.+}")
