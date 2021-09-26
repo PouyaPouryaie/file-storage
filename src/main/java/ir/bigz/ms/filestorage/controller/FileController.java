@@ -2,6 +2,7 @@ package ir.bigz.ms.filestorage.controller;
 
 import ir.bigz.ms.filestorage.model.UploadFileResponse;
 import ir.bigz.ms.filestorage.service.FileStorageService;
+import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
@@ -69,10 +70,11 @@ public class FileController {
                 file.getContentType(), file.getSize());
     }
 
-    @GetMapping("/downladFile/file/{category}/{fileName:.+}")
-    public ResponseEntity<?> downloadFileAsByte(@PathVariable(name = "category") String category, @PathVariable(name = "name") String fileName) {
+    @SneakyThrows
+    @GetMapping("/downloadFile/file/{category}/{fileName:.+}")
+    public ResponseEntity<?> downloadFileFromResourcesOrStaticFolder(@PathVariable(name = "category") String category, @PathVariable(name = "fileName") String fileName) {
         
-        byte[] bytes = fileStorageService.loadFileAsByte(category, fileName);
+        byte[] bytes = fileStorageService.loadFileAsByteFromResources(category, fileName);
         if(bytes.length > 1){
             try{
                 TikaConfig tc = new TikaConfig();
@@ -85,9 +87,11 @@ public class FileController {
             }
 
         }else{
-            FileSystemResource fileSystemResource = new FileSystemResource("file/images/" + (fileName != null ? fileName : "") + ".png");
+            FileSystemResource fileSystemResource = new FileSystemResource(fileStorageService.getFilePath(fileName));
            if (fileSystemResource.exists()) {
-               return new ResponseEntity<>(fileSystemResource, HttpStatus.OK);
+               return ResponseEntity.ok()
+                       .contentType(MediaType.parseMediaType(tika.detect(fileSystemResource.getFile())))
+                       .body(fileSystemResource);
            } else {
                return new ResponseEntity<>(HttpStatus.NOT_FOUND);
            }

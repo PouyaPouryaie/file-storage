@@ -69,14 +69,14 @@ public class FileStorageServiceImpl implements FileStorageService {
     }
 
     @Override
-    public byte[] loadFileAsByte(String category, String fileName){
+    public byte[] loadFileAsByteFromResources(String category, String fileName){
         try(InputStream resourceAsStream = getClass().getClassLoader()
-        .getResourceAsStream("file" + File.separator + category + File.separator + fileName + ".png")){
+        .getResourceAsStream("file" + File.separator + category + File.separator + fileName)){
             if(resourceAsStream.available() > 0){
                 return IOUtils.toByteArray(resourceAsStream);
             }
         }catch(IOException ex){
-            throw new MyFileNotFoundException("File not found " + fileName);
+            throw new MyFileNotFoundException(String.format("%s not found in resources",fileName));
         }
         return new byte[0];
     }
@@ -96,7 +96,8 @@ public class FileStorageServiceImpl implements FileStorageService {
         throw new MyFileNotFoundException("File not found " + fileName);
     }
 
-    private Path getFilePath(String fileName){
+    @Override
+    public Path getFilePath(String fileName){
         return this.fileStorageLocation.resolve(fileName).normalize();
     }
 }
