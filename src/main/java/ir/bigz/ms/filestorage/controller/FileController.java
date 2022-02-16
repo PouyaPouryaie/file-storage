@@ -3,8 +3,11 @@ package ir.bigz.ms.filestorage.controller;
 import ir.bigz.ms.filestorage.model.UploadFileResponse;
 import ir.bigz.ms.filestorage.service.FileStorageService;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.io.FileUtils;
+import org.apache.tomcat.util.codec.binary.Base64;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -20,8 +23,9 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.File;
 import java.io.IOException;
-import java.util.Collections;
-import java.util.HashMap;
+import java.net.URL;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api")
@@ -29,6 +33,8 @@ import java.util.HashMap;
 public class FileController {
 
     private final FileStorageService fileStorageService;
+    public final static String IF_NONE_MATCH = "if-none-match";
+    public final static String ETAG = "etag";
 
     @Autowired
     public FileController(FileStorageService fileStorageService) {
@@ -36,10 +42,10 @@ public class FileController {
     }
 
     @PostMapping("/file/valid")
-    public ResponseEntity<?> checkValidFile(@RequestPart MultipartFile file){
+    public ResponseEntity<?> checkValidFile(@RequestPart MultipartFile file) {
         boolean result = fileStorageService.checkFileValid(file);
 
-        if(result)
+        if (result)
             return new ResponseEntity<>("validation success ", HttpStatus.ACCEPTED);
         else {
             return new ResponseEntity<>("validation failed", HttpStatus.EXPECTATION_FAILED);
@@ -48,7 +54,7 @@ public class FileController {
     }
 
     @PostMapping("/uploadFile")
-    public UploadFileResponse uploadFile(@RequestParam("file") MultipartFile file){
+    public UploadFileResponse uploadFile(@RequestParam("file") MultipartFile file) {
         String fileName = fileStorageService.storeFile(file);
 
         String fileDownloadUri = ServletUriComponentsBuilder.fromCurrentContextPath()
@@ -61,7 +67,7 @@ public class FileController {
     }
 
     @GetMapping("/downloadFile/{fileName:.+}")
-    public ResponseEntity<Resource> downloadFile(@PathVariable String fileName, HttpServletRequest request){
+    public ResponseEntity<Resource> downloadFile(@PathVariable String fileName, HttpServletRequest request) {
         // Load file as Resource
         Resource resource = fileStorageService.loadFileAsResource(fileName);
 
@@ -74,7 +80,7 @@ public class FileController {
         }
 
         // Fallback to the default content type if type could not be determined
-        if(contentType == null) {
+        if (contentType == null) {
             contentType = "application/octet-stream";
         }
 
@@ -97,10 +103,9 @@ public class FileController {
 
         // Fallback to the default content type if type could not be determined
         ServletOutputStream os = response.getOutputStream();
-        if(!contentType.equals("application/pdf")) {
+        if (!contentType.equals("application/pdf")) {
             os.write("فایل مورد نظر پی دی اف نمیباشد".getBytes());
-        }
-        else{
+        } else {
             byte[] bytes = FileUtils.readFileToByteArray(file);
             response.setContentType(contentType);
             response.addHeader(HttpHeaders.CONTENT_TYPE, contentType);
@@ -109,5 +114,64 @@ public class FileController {
         }
         os.flush();
         os.close();
+    }
+
+    @GetMapping(path = {"/download-file-object", "/download-file-object/{filename}"},
+            produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<?> downloadFileAsObject(@PathVariable(name = "filename", required = false) String name,
+                                                  HttpServletRequest request) throws IOException {
+        try {
+            final URL resource = getClass().getClassLoader().getResource("images/");
+            final File imagesDir = new File(resource.getFile());
+            Map<String, Object> data = new HashMap<>();
+            if ((name == null || "".equals(name.trim()) || "null".equals(name.trim()))) {
+                final String[] list = imagesDir.list();
+                if (list == null || list.length == 0)
+                    throw new IOException("file not found");
+                List<String> fileNames = Arrays.stream(list)
+                        .sorted(String::compareTo)
+                        .collect(Collectors.toList());
+                data.put("imageNames", fileNames);
+                final File firstFile = new File(imagesDir, fileNames.get(0));
+                data.put("image", Base64.encodeBase64String(FileUtils.readFileToByteArray(firstFile)));
+            } else {
+                data.put("image", Base64.encodeBase64String(FileUtils.readFileToByteArray(new File(imagesDir, name))));
+            }
+
+            ResponseEntity<Map<String, Object>> response = ResponseEntity.ok()
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(data);
+
+            return getAndCacheResponseBody(request, response);
+
+        } catch (Exception e) {
+            throw new IOException(e.getMessage());
+        }
+    }
+
+    /**
+     * if request has if_none_match in header, check etag with it and if these are same return not_modified in response and
+     * dont send duplicate data for same request.
+     *
+     * @param request
+     * @param response
+     * @return ResponseEntity
+     */
+    protected ResponseEntity<?> getAndCacheResponseBody(HttpServletRequest request, ResponseEntity<?> response) {
+
+        final String etag;
+        byte[] imgBytes = Objects.requireNonNull(response.getBody()).toString().getBytes();
+        etag = DigestUtils.md5Hex(imgBytes);
+        Optional<String> noneMatchHeader = Optional.ofNullable(request.getHeader(IF_NONE_MATCH));
+
+        if (noneMatchHeader.isPresent() && noneMatchHeader.get().equals(etag)) {
+            return ResponseEntity.status(HttpStatus.NOT_MODIFIED).build();
+        }
+
+        return ResponseEntity.ok()
+                .header(ETAG, etag)
+                .headers(response.getHeaders())
+                .contentType(Objects.requireNonNull(response.getHeaders().getContentType()))
+                .body(response.getBody());
     }
 }
