@@ -5,6 +5,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.File;
+import java.nio.file.Path;
 
 @Service
 public interface FileStorageService {
@@ -15,5 +16,9 @@ public interface FileStorageService {
 
     Resource loadFileAsResource(String fileName);
 
+    byte[] loadFileAsByteFromResources(String category, String fileName);
+
     File downloadFileAsPDF(String fileName);
+
+    Path getFilePath(String fileName);
 }
