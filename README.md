@@ -6,5 +6,7 @@ features: <br>
 - read file as File, Resource or Byte
 - upload with details in db
 - detect file mimeType with tika
+- send not-modify instead resend data if response is duplicate
+- response file as resource, outputStream and JsonObject
 
 and more features in futures
